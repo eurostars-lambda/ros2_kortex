@@ -98,3 +98,9 @@ ament_export_dependencies(
   rclcpp
 )
 ament_package()
+
+add_custom_command(
+  TARGET kortex_driver
+  COMMAND bash ${CMAKE_SOURCE_DIR}/make_symbolic.sh ${CMAKE_CURRENT_BINARY_DIR}/libkortex_driver.so
+  POST_BUILD
+)
