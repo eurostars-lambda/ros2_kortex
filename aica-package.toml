@@ -1,0 +1,33 @@
+#syntax=ghcr.io/aica-technology/package-builder:v0.0.14
+
+[metadata]
+name = "collections/kinova-gen3-collection"
+ros-name = "collections_kinova_gen3_collection"
+version = "0.1.1"
+
+[build]
+type = "ros"
+
+[build.cmake_args]
+BUILD_TESTING = "OFF"
+
+[build.environment.aica]
+image = "iron"
+
+[build.environment.aica.libraries]
+"@aica/foss/control-libraries" = "v7.3.0"
+
+[build.environment.aica.ros]
+"@aica/foss/modulo" = "v4.0.0"
+
+[build.packages.kortex_api]
+source = "kortex_api"
+
+[build.packages.kortex_driver]
+source = "kortex_driver"
+
+[build.packages.kortex_description]
+source = "kortex_description"
+
+[build.packages.robotiq_description]
+source = "git://github.com/PickNikRobotics/ros2_robotiq_gripper#main:robotiq_description"
