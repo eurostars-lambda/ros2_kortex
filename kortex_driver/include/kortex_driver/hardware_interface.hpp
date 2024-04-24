@@ -46,6 +46,7 @@
 #include "BaseClientRpc.h"
 #include "BaseCyclicClientRpc.h"
 #include "RouterClient.h"
+#include "ActuatorConfigClientRpc.h"
 #include "SessionManager.h"
 #include "TransportClientTcp.h"
 #include "TransportClientUdp.h"
@@ -67,11 +68,13 @@ namespace kortex_driver
 enum class StopStartInterface
 {
   NONE,
-  STOP_POS_VEL,
+  STOP_POS,
+  STOP_VEL,
   STOP_TWIST,
   STOP_GRIPPER,
   STOP_FAULT_CTRL,
-  START_POS_VEL,
+  START_POS,
+  START_VEL,
   START_TWIST,
   START_GRIPPER,
   START_FAULT_CTRL,
@@ -114,21 +117,22 @@ public:
   return_type write(const rclcpp::Time & time, const rclcpp::Duration & period) final;
 
 private:
-  k_api::TransportClientTcp transport_tcp_;
-  k_api::RouterClient router_tcp_;
-  k_api::SessionManager session_manager_;
-  k_api::TransportClientUdp transport_udp_realtime_;
-  k_api::RouterClient router_udp_realtime_;
-  k_api::SessionManager session_manager_real_time_;
+  k_api::TransportClientTcp* transport_tcp_;
+  k_api::RouterClient* router_tcp_;
+  k_api::SessionManager* session_manager_;
+  k_api::TransportClientUdp* transport_udp_realtime_;
+  k_api::RouterClient* router_udp_realtime_;
+  k_api::SessionManager* session_manager_real_time_;
+  k_api::ActuatorConfig::ActuatorConfigClient* actuator_config_;
 
   // twist temporary command
   Kinova::Api::Base::Twist * k_api_twist_;
   k_api::Base::TwistCommand k_api_twist_command_;
 
   // Control of the robot arm itself
-  k_api::Base::BaseClient base_;
-  k_api::BaseCyclic::BaseCyclicClient base_cyclic_;
-  k_api::BaseCyclic::Command base_command_;
+  k_api::Base::BaseClient* base_;
+  k_api::BaseCyclic::BaseCyclicClient* base_cyclic_;
+  k_api::BaseCyclic::Command* base_command_;
   std::size_t actuator_count_;
   // To minimize bandwidth we synchronize feedback with the robot only when write() is called
   k_api::BaseCyclic::Feedback feedback_;
@@ -143,17 +147,15 @@ private:
   std::vector<double> twist_commands_;
 
   // Gripper
-  k_api::GripperCyclic::MotorCommand * gripper_motor_command_;
+  k_api::GripperCyclic::MotorCommand* gripper_motor_command_;
   double gripper_command_position_ = 0.0;
   double gripper_command_max_velocity_ = 0.0;
   double gripper_command_max_force_ = 0.0;
   double gripper_position_ = 0.0;
   double gripper_velocity_ = 0.0;
-  double gripper_force_command_ = 0.0;
-  double gripper_speed_command_ = 0.0;
 
   rclcpp::Time controller_switch_time_;
-  std::atomic<bool> block_write = false;
+  std::atomic<bool> block_write_ = false;
   k_api::Base::ServoingMode arm_mode_;
 
   // Enum defining at which control level we are
@@ -171,7 +173,8 @@ private:
   // changing active controller on the hardware
   k_api::Base::ServoingModeInformation servoing_mode_hw_;
   // what controller is running
-  bool joint_based_controller_running_;
+  bool joint_pos_controller_running_;
+  bool joint_vel_controller_running_;
   bool twist_controller_running_;
   bool gripper_controller_running_;
   bool fault_controller_running_;
@@ -183,11 +186,13 @@ private:
   std::vector<StopStartInterface> stop_modes_;
   std::vector<StopStartInterface> start_modes_;
   // switching auxiliary booleans
-  bool stop_joint_based_controller_;
+  bool stop_joint_pos_controller_;
+  bool stop_joint_vel_controller_;
   bool stop_twist_controller_;
   bool stop_gripper_controller_;
   bool stop_fault_controller_;
-  bool start_joint_based_controller_;
+  bool start_joint_pos_controller_;
+  bool start_joint_vel_controller_;
   bool start_twist_controller_;
   bool start_gripper_controller_;
   bool start_fault_controller_;
