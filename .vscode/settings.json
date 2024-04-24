@@ -1,0 +1,7 @@
+{
+    "C_Cpp.clang_format_style": "file:/home/ros2/.clang-format",
+    "editor.rulers": [
+        120
+    ],
+    "cmake.sourceDirectory": "/home/ros2/ws/src/kortex_driver"
+}
