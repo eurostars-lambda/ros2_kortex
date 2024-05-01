@@ -254,6 +254,8 @@ CallbackReturn KortexMultiInterfaceHardware::on_init(const hardware_interface::H
     actuator_count_, integration_lvl_t::UNDEFINED);  // start in undefined
   gripper_command_position_ = std::numeric_limits<double>::quiet_NaN();
   gripper_position_ = std::numeric_limits<double>::quiet_NaN();
+  offset_.resize(actuator_count_, std::numeric_limits<double>::quiet_NaN());
+  // motor_constants_ = std::vector<double>{11, 11, 11, 11, 6, 6, 6};
 
   // set size of the twist interface
   twist_commands_.resize(6, 0.0);
@@ -430,17 +432,11 @@ return_type KortexMultiInterfaceHardware::prepare_command_mode_switch(
       }
       if (key == joint.name + "/" + hardware_interface::HW_IF_VELOCITY)
       {
-        stop_modes_.emplace_back(StopStartInterface::STOP_VEL);
+        continue;
       }
       if (key == joint.name + "/" + hardware_interface::HW_IF_EFFORT)
       {
-        continue;
-        // not supporting effort command interface
-        //              start_modes_.emplace_back(hardware_interface::HW_IF_EFFORT);
-        RCLCPP_ERROR(
-          LOGGER,
-          "KortexMultiInterfaceHardware does not support effort command "
-          "interface!");
+        stop_modes_.emplace_back(StopStartInterface::STOP_VEL);
       }
     }
     if (
@@ -481,15 +477,11 @@ return_type KortexMultiInterfaceHardware::prepare_command_mode_switch(
       }
       if (key == joint.name + "/" + hardware_interface::HW_IF_VELOCITY)
       {
-        start_modes_.emplace_back(StopStartInterface::START_VEL);
+        continue;
       }
       if (key == joint.name + "/" + hardware_interface::HW_IF_EFFORT)
       {
-        continue;
-        RCLCPP_ERROR(
-          LOGGER,
-          "KortexMultiInterfaceHardware does not support effort command "
-          "interface!");
+        start_modes_.emplace_back(StopStartInterface::START_VEL);
       }
     }
     if (
@@ -655,7 +647,8 @@ return_type KortexMultiInterfaceHardware::perform_command_mode_switch(
     joint_pos_controller_running_ = false;
     joint_vel_controller_running_ = true;
     auto control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
-    control_mode_message.set_control_mode(Kinova::Api::ActuatorConfig::ControlMode::VELOCITY);        
+    control_mode_message.set_control_mode(Kinova::Api::ActuatorConfig::ControlMode::TORQUE);        
+    // control_mode_message.set_control_mode(Kinova::Api::ActuatorConfig::ControlMode::CURRENT);        
     for (int actuator_id = 1; actuator_id < actuator_count_ + 1; actuator_id++)
     {
         actuator_config_->SetControlMode(control_mode_message, actuator_id);
@@ -800,6 +793,11 @@ return_type KortexMultiInterfaceHardware::read(
   {
     first_pass_ = false;
     feedback_ = base_cyclic_->RefreshFeedback();
+
+    for (std::size_t i = 0; i < actuator_count_; i++)
+    {
+      offset_[i] = feedback_.actuators(i).torque(); 
+    }
   }
 
   // read if robot is faulted
@@ -976,9 +974,10 @@ void KortexMultiInterfaceHardware::prepareCommands()
     for (size_t i = 0; i < actuator_count_; i++)
     {
       // set command per joint
-      cmd_vel_tmp_ = static_cast<float>(KortexMathUtil::toDeg(arm_commands_velocities_[i]));
       base_command_->mutable_actuators(i)->set_position(feedback_.actuators(i).position());
-      base_command_->mutable_actuators(static_cast<int>(i))->set_velocity(cmd_vel_tmp_);
+      base_command_->mutable_actuators(i)->set_torque_joint(-1.1 * offset_[i]);
+      // RCLCPP_WARN_STREAM(LOGGER, arm_commands_efforts_[i] / motor_constants_[i]);
+      // base_command_->mutable_actuators(i)->set_current_motor(-arm_commands_efforts_[i] / motor_constants_[i]);
       base_command_->mutable_actuators(static_cast<int>(i))->set_command_id(base_command_->frame_id());
     }
   }
