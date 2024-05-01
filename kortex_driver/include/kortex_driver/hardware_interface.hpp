@@ -108,6 +108,8 @@ private:
 
   void send_joint_commands();
 
+  void stop();
+
   k_api::TransportClientTcp* transport_tcp_;
   k_api::RouterClient* router_tcp_;
   k_api::SessionManager* session_manager_;

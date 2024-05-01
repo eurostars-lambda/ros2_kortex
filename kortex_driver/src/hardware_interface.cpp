@@ -227,10 +227,6 @@ CallbackReturn KortexMultiInterfaceHardware::on_configure(const rclcpp_lifecycle
           "Error sub-code: " << k_api::SubErrorCodes_Name(
               k_api::SubErrorCodes((ex.getErrorInfo().getError().error_sub_code()))));
     }
-
-    // low level servoing on startup
-    servoing_mode_hw_.set_servoing_mode(Kinova::Api::Base::LOW_LEVEL_SERVOING);
-    base_->SetServoingMode(servoing_mode_hw_);
   }
 
   auto actuator_count = base_->GetActuatorCount().count();
@@ -274,6 +270,10 @@ std::vector<hardware_interface::CommandInterface> KortexMultiInterfaceHardware::
 CallbackReturn KortexMultiInterfaceHardware::on_activate(const rclcpp_lifecycle::State&) {
   RCLCPP_INFO(LOGGER, "Activating KortexMultiInterfaceHardware...");
 
+  // low level servoing on startup
+  servoing_mode_hw_.set_servoing_mode(Kinova::Api::Base::LOW_LEVEL_SERVOING);
+  base_->SetServoingMode(servoing_mode_hw_);
+  
   auto base_feedback = base_cyclic_->RefreshFeedback();
   base_command_ = new k_api::BaseCyclic::Command();
   // Add each actuator to the base_command_ and set the command to its current position
@@ -289,13 +289,7 @@ CallbackReturn KortexMultiInterfaceHardware::on_activate(const rclcpp_lifecycle:
 CallbackReturn KortexMultiInterfaceHardware::on_deactivate(const rclcpp_lifecycle::State&) {
   RCLCPP_INFO(LOGGER, "Deactivating KortexMultiInterfaceHardware...");
 
-  auto control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
-  control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::POSITION);
-  for (std::size_t id = 0; id < actuator_count_; ++id) {
-    actuator_config_->SetControlMode(control_mode_message, id + 1);
-  }
-  servoing_mode_hw_.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
-  base_->SetServoingMode(servoing_mode_hw_);
+  stop();
 
   RCLCPP_INFO(LOGGER, "KortexMultiInterfaceHardware successfully deactivated!");
   return CallbackReturn::SUCCESS;
@@ -304,13 +298,7 @@ CallbackReturn KortexMultiInterfaceHardware::on_deactivate(const rclcpp_lifecycl
 CallbackReturn KortexMultiInterfaceHardware::on_cleanup(const rclcpp_lifecycle::State&) {
   RCLCPP_INFO(LOGGER, "Cleaning up KortexMultiInterfaceHardware...");
 
-  auto control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
-  control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::POSITION);
-  for (std::size_t id = 0; id < actuator_count_; ++id) {
-    actuator_config_->SetControlMode(control_mode_message, id + 1);
-  }
-  servoing_mode_hw_.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
-  base_->SetServoingMode(servoing_mode_hw_);
+  stop();
 
   // Close API session
   session_manager_->CloseSession();
@@ -372,7 +360,7 @@ return_type KortexMultiInterfaceHardware::read(const rclcpp::Time&, const rclcpp
   return return_type::OK;
 }
 
-return_type KortexMultiInterfaceHardware::write(const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/) {
+return_type KortexMultiInterfaceHardware::write(const rclcpp::Time&, const rclcpp::Duration&) {
   if (block_write_) {
     feedback_ = base_cyclic_->RefreshFeedback();
     return return_type::OK;
@@ -491,9 +479,7 @@ return_type KortexMultiInterfaceHardware::prepare_command_mode_switch(
     const std::vector<std::string>& start_interfaces, const std::vector<std::string>& stop_interfaces) {
   hardware_interface::return_type ret_val = hardware_interface::return_type::OK;
 
-  // sleep to ensure all outgoing write commands have finished
   block_write_ = true;
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
   start_mode_ = ControlMode::NONE;
   stop_mode_ = ControlMode::NONE;
@@ -549,9 +535,18 @@ return_type KortexMultiInterfaceHardware::prepare_command_mode_switch(
   return ret_val;
 }
 
+void KortexMultiInterfaceHardware::stop() {
+  auto control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
+  control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::POSITION);
+  for (std::size_t id = 0; id < actuator_count_; ++id) {
+    actuator_config_->SetControlMode(control_mode_message, id + 1);
+  }
+  servoing_mode_hw_.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
+  base_->SetServoingMode(servoing_mode_hw_);
+}
+
 return_type
 KortexMultiInterfaceHardware::perform_command_mode_switch(const vector<std::string>&, const vector<std::string>&) {
-
   hardware_interface::return_type ret_val = hardware_interface::return_type::OK;
 
   switch (stop_mode_) {
@@ -561,17 +556,18 @@ KortexMultiInterfaceHardware::perform_command_mode_switch(const vector<std::stri
       break;
     case ControlMode::EFFORT:
       mode_ = ControlMode::NONE;
-      arm_commands_efforts_ = std::vector<double>(actuator_count_, std::numeric_limits<double>::quiet_NaN());
+      arm_commands_positions_ = arm_positions_;
+      // arm_commands_efforts_ = std::vector<double>(actuator_count_, 0.0); // TODO
       break;
     default:
       break;
   }
+  first_pass_ = true;
 
   switch (start_mode_) {
     case ControlMode::POSITION: {
       servoing_mode_hw_.set_servoing_mode(k_api::Base::ServoingMode::LOW_LEVEL_SERVOING);
       base_->SetServoingMode(servoing_mode_hw_);
-      arm_commands_positions_ = arm_positions_;
       auto control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
       control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::POSITION);
       for (std::size_t id = 1; id < actuator_count_ + 1; ++id) {
@@ -584,7 +580,6 @@ KortexMultiInterfaceHardware::perform_command_mode_switch(const vector<std::stri
     case ControlMode::EFFORT: {
       servoing_mode_hw_.set_servoing_mode(k_api::Base::ServoingMode::LOW_LEVEL_SERVOING);
       base_->SetServoingMode(servoing_mode_hw_);
-      arm_commands_positions_ = arm_positions_;
       auto control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
       switch (effort_mode_) {
         case EffortControlMode::TORQUE:
@@ -608,6 +603,7 @@ KortexMultiInterfaceHardware::perform_command_mode_switch(const vector<std::stri
       break;
     }
     default:
+      stop();
       mode_ = ControlMode::NONE;
       break;
   }
