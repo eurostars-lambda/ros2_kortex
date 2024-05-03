@@ -136,7 +136,6 @@ private:
   std::vector<double> arm_positions_;
   std::vector<double> arm_velocities_;
   std::vector<double> arm_efforts_;
-  std::vector<double> offset_;
   std::vector<double> motor_constants_;
 
   std::atomic<bool> block_write_;

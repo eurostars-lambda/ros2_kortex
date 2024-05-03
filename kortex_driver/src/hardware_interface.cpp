@@ -63,7 +63,6 @@ CallbackReturn KortexMultiInterfaceHardware::on_init(const hardware_interface::H
   arm_efforts_.resize(actuator_count_, std::numeric_limits<double>::quiet_NaN());
   arm_commands_positions_.resize(actuator_count_, std::numeric_limits<double>::quiet_NaN());
   arm_commands_efforts_.resize(actuator_count_, std::numeric_limits<double>::quiet_NaN());
-  offset_.resize(actuator_count_, std::numeric_limits<double>::quiet_NaN());
   motor_constants_ = std::vector<double>{11, 11, 11, 11, 7.6, 7.6, 7.6};
 
   auto effort_mode_string = info_.hardware_parameters["effort_mode"];
@@ -327,10 +326,6 @@ return_type KortexMultiInterfaceHardware::read(const rclcpp::Time&, const rclcpp
   if (first_pass_) {
     first_pass_ = false;
     feedback_ = base_cyclic_->RefreshFeedback();
-
-    for (std::size_t i = 0; i < actuator_count_; i++) {
-      offset_[i] = feedback_.actuators(i).torque();
-    }
   }
 
   // read if robot is faulted
@@ -431,14 +426,13 @@ void KortexMultiInterfaceHardware::send_joint_commands() {
   } else if (mode_ == ControlMode::EFFORT) {
     for (size_t i = 0; i < actuator_count_; i++) {
       base_command_->mutable_actuators(static_cast<int>(i))->set_position(feedback_.actuators(i).position());
-      auto torque = -1.1 * offset_[i] + arm_commands_efforts_[i];
       switch (effort_mode_) {
         case EffortControlMode::TORQUE:
         case EffortControlMode::TORQUE_HIGH_VELOCITY:
-          base_command_->mutable_actuators(static_cast<int>(i))->set_torque_joint(torque);
+          base_command_->mutable_actuators(static_cast<int>(i))->set_torque_joint(arm_commands_efforts_[i]);
           break;
         case EffortControlMode::CURRENT:
-          base_command_->mutable_actuators(static_cast<int>(i))->set_current_motor(torque / motor_constants_[i]);
+          base_command_->mutable_actuators(static_cast<int>(i))->set_current_motor(arm_commands_efforts_[i] / motor_constants_[i]);
           break;
         default:
           break;

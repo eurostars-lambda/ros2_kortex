@@ -52,7 +52,6 @@ add_library(
   ${PROJECT_NAME}
   SHARED
   src/hardware_interface.cpp
-  src/kortex_interface.cpp
   src/kortex_math_util.cpp
 )
 target_link_libraries(${PROJECT_NAME} KortexApiCpp)
