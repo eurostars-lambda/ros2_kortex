@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "AMD",
+            "includePath": [
+                "/opt/ros/iron/include/**",
+                "/home/ros2/ros2_ws/install/**",
+                "/home/ros2/ws/src/**/include",
+                "/home/ros2/.devcontainer/build/_deps/kinova_binary_api-src/include/**"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
