@@ -21,7 +21,7 @@ from launch.actions import (
     RegisterEventHandler,
 )
 from launch.event_handlers import OnProcessExit
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import (
     Command,
     FindExecutable,
@@ -59,6 +59,10 @@ def launch_setup(context, *args, **kwargs):
     # if we are using fake hardware then we can't use the internal gripper communications of the hardware
     if use_fake_hardware.parse:
         use_internal_bus_gripper_comm = "false"
+
+    use_gripper = "false" if gripper.perform(context) == '""' or gripper.perform(context) == "" else "true"
+    print('adsfasdfadsfasdf', use_gripper)
+
 
     robot_description_content = Command(
         [
@@ -174,10 +178,12 @@ def launch_setup(context, *args, **kwargs):
         arguments=[robot_pos_controller, "--inactive", "-c", "/controller_manager"],
     )
 
+    # Conditionally launch the robot_hand_controller_spawner
     robot_hand_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=[robot_hand_controller, "-c", "/controller_manager"],
+        condition=IfCondition(use_gripper)  # Launch only if `gripper` is not empty
     )
 
     # only start the fault controller if we are using hardware
