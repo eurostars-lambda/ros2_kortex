@@ -72,9 +72,9 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "gripper",
-            default_value="robotiq_2f_85",
+            default_value="",
             description="Name of the gripper attached to the arm",
-            choices=["robotiq_2f_85", "gen3_lite_2f"],
+            choices=["robotiq_2f_85", "gen3_lite_2f", ""],
         )
     )
     declared_arguments.append(
@@ -108,7 +108,6 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument("launch_rviz", default_value="true", description="Launch RViz?")
     )
-
     # Initialize Arguments
     robot_type = LaunchConfiguration("robot_type")
     robot_ip = LaunchConfiguration("robot_ip")
