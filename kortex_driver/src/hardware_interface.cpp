@@ -47,7 +47,7 @@ KortexMultiInterfaceHardware::~KortexMultiInterfaceHardware() {
 }
 
 CallbackReturn KortexMultiInterfaceHardware::on_init(const hardware_interface::HardwareInfo& info) {
-  RCLCPP_INFO(LOGGER, "Initializing KortexMultiInterfaceHardware...");
+  RCLCPP_WARN(LOGGER, "... entering KortexMultiInterfaceHardware:on_init ...");
   if (hardware_interface::SystemInterface::on_init(info) != CallbackReturn::SUCCESS) {
     return CallbackReturn::ERROR;
   }
@@ -125,12 +125,12 @@ CallbackReturn KortexMultiInterfaceHardware::on_init(const hardware_interface::H
     }
   }
 
-  RCLCPP_INFO(LOGGER, "KortexMultiInterfaceHardware successfully initialized");
+  RCLCPP_WARN(LOGGER, "... exiting KortexMultiInterfaceHardware:on_init ...");
   return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn KortexMultiInterfaceHardware::on_configure(const rclcpp_lifecycle::State&) {
-  RCLCPP_INFO(LOGGER, "Configuring KortexMultiInterfaceHardware...");
+  RCLCPP_WARN(LOGGER, "... entering KortexMultiInterfaceHardware:on_configure ...");
 
   auto robot_ip = info_.hardware_parameters["robot_ip"];
   if (robot_ip.empty()) {
@@ -234,7 +234,7 @@ CallbackReturn KortexMultiInterfaceHardware::on_configure(const rclcpp_lifecycle
     return CallbackReturn::ERROR;
   }
 
-  RCLCPP_INFO(LOGGER, "KortexMultiInterfaceHardware successfully configured");
+  RCLCPP_WARN(LOGGER, "... exiting KortexMultiInterfaceHardware:on_configure ...");
   return CallbackReturn::SUCCESS;
 }
 
@@ -267,7 +267,7 @@ std::vector<hardware_interface::CommandInterface> KortexMultiInterfaceHardware::
 }
 
 CallbackReturn KortexMultiInterfaceHardware::on_activate(const rclcpp_lifecycle::State&) {
-  RCLCPP_INFO(LOGGER, "Activating KortexMultiInterfaceHardware...");
+  RCLCPP_WARN(LOGGER, "... entering KortexMultiInterfaceHardware:on_activate ...");
 
   // low level servoing on startup
   servoing_mode_hw_.set_servoing_mode(Kinova::Api::Base::LOW_LEVEL_SERVOING);
@@ -281,21 +281,21 @@ CallbackReturn KortexMultiInterfaceHardware::on_activate(const rclcpp_lifecycle:
   }
   base_feedback = base_cyclic_->Refresh(*base_command_);
 
-  RCLCPP_INFO(LOGGER, "KortexMultiInterfaceHardware successfully activated!");
+  RCLCPP_WARN(LOGGER, "... exiting KortexMultiInterfaceHardware:on_activate ...");
   return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn KortexMultiInterfaceHardware::on_deactivate(const rclcpp_lifecycle::State&) {
-  RCLCPP_INFO(LOGGER, "Deactivating KortexMultiInterfaceHardware...");
+  RCLCPP_WARN(LOGGER, "... entering KortexMultiInterfaceHardware:on_deactivate ...");
 
   stop();
 
-  RCLCPP_INFO(LOGGER, "KortexMultiInterfaceHardware successfully deactivated!");
+  RCLCPP_WARN(LOGGER, "... exiting KortexMultiInterfaceHardware:on_deactivate ...");
   return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn KortexMultiInterfaceHardware::on_cleanup(const rclcpp_lifecycle::State&) {
-  RCLCPP_INFO(LOGGER, "Cleaning up KortexMultiInterfaceHardware...");
+  RCLCPP_WARN(LOGGER, "... entering KortexMultiInterfaceHardware:on_cleanup ...");
 
   stop();
 
@@ -318,12 +318,14 @@ CallbackReturn KortexMultiInterfaceHardware::on_cleanup(const rclcpp_lifecycle::
   delete transport_tcp_;
   delete transport_udp_realtime_;
 
-  RCLCPP_INFO(LOGGER, "KortexMultiInterfaceHardware successfully cleaned up!");
+  RCLCPP_WARN(LOGGER, "... exiting KortexMultiInterfaceHardware:on_cleanup ...");
   return CallbackReturn::SUCCESS;
 }
 
 return_type KortexMultiInterfaceHardware::read(const rclcpp::Time&, const rclcpp::Duration&) {
   if (first_pass_) {
+    RCLCPP_WARN_STREAM(LOGGER, "... entering KortexMultiInterfaceHardware:read:first_pass_ condition ...");
+    RCLCPP_INFO_STREAM(LOGGER, "............................");
     first_pass_ = false;
     feedback_ = base_cyclic_->RefreshFeedback();
   }
@@ -351,6 +353,21 @@ return_type KortexMultiInterfaceHardware::read(const rclcpp::Time&, const rclcpp
 
   // add mode that can't be easily reached
   in_fault_ += (feedback_.base().active_state() == k_api::Common::ARMSTATE_SERVOING_READY);
+
+
+  /* OO: TRACKING in_fault_*/
+  if (in_fault_ != 0.0 && in_fault_prev_==0){
+    RCLCPP_ERROR_STREAM(LOGGER, "........................................................................................");
+    RCLCPP_ERROR_STREAM(LOGGER, "......................... There is a fault in read:in_fault_: " << in_fault_ << "..........................");
+    RCLCPP_ERROR_STREAM(LOGGER, "........................................................................................");
+  }
+  else if(in_fault_ == 0.0 && in_fault_prev_!=0 ){
+    RCLCPP_WARN_STREAM(LOGGER, "........................................................................................");
+    RCLCPP_WARN_STREAM(LOGGER, "...................Error is cleared in read:in_fault_..........................");
+    RCLCPP_WARN_STREAM(LOGGER, "........................................................................................");
+  }
+  in_fault_prev_ = in_fault_;
+  /* OO: TRACKING in_fault_*/
 
   return return_type::OK;
 }
@@ -400,15 +417,47 @@ return_type KortexMultiInterfaceHardware::write(const rclcpp::Time&, const rclcp
   //   reset_fault_cmd_ = NO_CMD;
   // }
 
-  if (in_fault_ == 0.0 && (feedback_.base().active_state() == k_api::Common::ARMSTATE_SERVOING_LOW_LEVEL)) {
+  /* if (in_fault_ == 0.0 && (feedback_.base().active_state() == k_api::Common::ARMSTATE_SERVOING_LOW_LEVEL)) {
     if (mode_ != ControlMode::NONE) {
       send_joint_commands();
     } else {
       feedback_ = base_cyclic_->RefreshFeedback();
     }
-  } else {
+  } 
+  else {
+    feedback_ = base_cyclic_->RefreshFeedback();
+  } */
+
+  if (in_fault_ == 0.0) 
+  {
+    if (feedback_.base().active_state() == k_api::Common::ARMSTATE_SERVOING_LOW_LEVEL)
+    {
+      if (mode_ != ControlMode::NONE) {
+        send_joint_commands();
+      } else {
+        RCLCPP_WARN_STREAM(LOGGER, "-----------ControlMode is NONE--------------");
+        feedback_ = base_cyclic_->RefreshFeedback();
+      }
+    }
+    else //FIXME: MAYBE HERE SINGLE LEVEL SERVOING ??
+    {
+      RCLCPP_WARN_STREAM(LOGGER, "-----------NOT THE CORRECT ACTIVE STATE--------------");
+      RCLCPP_WARN_STREAM(LOGGER, "------------active_state(): "<<feedback_.base().active_state() << "-------------");
+      RCLCPP_WARN_STREAM(LOGGER, "------------ARMSTATE_SERVOING_LOW_LEVEL: " << k_api::Common::ARMSTATE_SERVOING_LOW_LEVEL << "-------------");
+      RCLCPP_WARN_STREAM(LOGGER, "-------------------------------------------");
+      feedback_ = base_cyclic_->RefreshFeedback();
+    }
+
+    
+  } 
+  else {
+    RCLCPP_WARN_STREAM(LOGGER, "-------------------------------------------");
+    RCLCPP_WARN_STREAM(LOGGER, "-----------There is an error--------------");
+    RCLCPP_WARN_STREAM(LOGGER, "------------in_fault_: "<<in_fault_ << "-------------");
+    RCLCPP_WARN_STREAM(LOGGER, "-------------------------------------------");
     feedback_ = base_cyclic_->RefreshFeedback();
   }
+  
 
   return return_type::OK;
 }
@@ -604,8 +653,33 @@ KortexMultiInterfaceHardware::perform_command_mode_switch(const vector<std::stri
 
   start_mode_ = ControlMode::NONE;
   stop_mode_ = ControlMode::NONE;
-  block_write_ = false;
 
+  /* OZHAN */
+  {
+    servoing_mode_hw_.set_servoing_mode(Kinova::Api::Base::SINGLE_LEVEL_SERVOING);
+    base_->SetServoingMode(servoing_mode_hw_);
+
+    try {
+      base_->ClearFaults();
+    } catch (k_api::KDetailedException& ex) {
+      RCLCPP_ERROR_STREAM(LOGGER, "Kortex exception: " << ex.what());
+      RCLCPP_ERROR_STREAM(
+          LOGGER,
+          "Error sub-code: " << k_api::SubErrorCodes_Name(
+              k_api::SubErrorCodes((ex.getErrorInfo().getError().error_sub_code()))));
+    }
+
+    // low level servoing again
+    servoing_mode_hw_.set_servoing_mode(Kinova::Api::Base::LOW_LEVEL_SERVOING);
+    base_->SetServoingMode(servoing_mode_hw_);
+  }
+  RCLCPP_WARN_STREAM(LOGGER, "-------------------------------------------");
+  RCLCPP_WARN_STREAM(LOGGER, "-------ERROR is RESET AFTER perform_command_mode_switch-----------");
+  RCLCPP_WARN_STREAM(LOGGER, "-------------------------------------------");
+  /*---*/
+
+
+  block_write_ = false;
   return ret_val;
 }
 

@@ -139,8 +139,9 @@ private:
   std::vector<double> motor_constants_;
 
   std::atomic<bool> block_write_;
-  bool first_pass_;
+  bool first_pass_ = true;
   double in_fault_;
+  double in_fault_prev_ = 0.0; // OO: TRACKING in_fault_
 };
 
 }// namespace kortex_driver
