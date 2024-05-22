@@ -61,7 +61,6 @@ def launch_setup(context, *args, **kwargs):
         use_internal_bus_gripper_comm = "false"
 
     use_gripper = "false" if gripper.perform(context) == '""' or gripper.perform(context) == "" else "true"
-    print('adsfasdfadsfasdf', use_gripper)
 
 
     robot_description_content = Command(
