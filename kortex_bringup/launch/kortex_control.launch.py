@@ -168,7 +168,7 @@ def launch_setup(context, *args, **kwargs):
     robot_traj_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=[robot_traj_controller, "-c", "/controller_manager"],
+        arguments=[robot_traj_controller, "--inactive", "-c", "/controller_manager"],
     )
 
     robot_pos_controller_spawner = Node(

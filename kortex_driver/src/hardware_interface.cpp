@@ -577,20 +577,20 @@ return_type KortexMultiInterfaceHardware::prepare_command_mode_switch(
   }
 
   // handle exclusiveness between twist and joint based controller
-  if (start_joint_pos_controller_ && start_joint_pos_controller_)
+  if (start_joint_pos_controller_ && start_joint_eff_controller_)
   {
     RCLCPP_ERROR(LOGGER, "Can't start joint position and effort controller at the same time!");
     return hardware_interface::return_type::ERROR;
   }
   if (twist_controller_running_ && (start_joint_pos_controller_ || start_joint_eff_controller_) && !stop_twist_controller_)
   {
-    RCLCPP_ERROR(LOGGER, "Can't start joint based controller while twist controller is running!");
+    RCLCPP_ERROR(LOGGER, "Can't start joint position or effort controller while twist controller is running!");
     return hardware_interface::return_type::ERROR;
   }
   if ((joint_pos_controller_running_ && start_twist_controller_ && !stop_joint_pos_controller_) || 
       (joint_eff_controller_running_ && start_twist_controller_ && !stop_joint_eff_controller_))
   {
-    RCLCPP_ERROR(LOGGER, "Can't start twist controller while joint based controller is running!");
+    RCLCPP_ERROR(LOGGER, "Can't start twist controller while joint position or effort controller is running!");
     return hardware_interface::return_type::ERROR;
   }
 
@@ -853,6 +853,7 @@ return_type KortexMultiInterfaceHardware::write(
 
   if (!std::isnan(reset_fault_cmd_) && fault_controller_running_)
   {
+    RCLCPP_WARN_STREAM(LOGGER, "Entering to the fault handling steps of the KortexMultiInterfaceHardware::write()...");
     try
     {
       // change servoing mode first
@@ -888,6 +889,7 @@ return_type KortexMultiInterfaceHardware::write(
       reset_fault_async_success_ = 0.0;
     }
     reset_fault_cmd_ = NO_CMD;
+    RCLCPP_WARN_STREAM(LOGGER, "Exiting from the fault handling steps of the KortexMultiInterfaceHardware::write()...");
   }
 
   if (in_fault_ == 0.0)
