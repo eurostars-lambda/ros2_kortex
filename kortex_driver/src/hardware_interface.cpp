@@ -676,6 +676,23 @@ return_type KortexMultiInterfaceHardware::perform_command_mode_switch(
     fault_controller_running_ = true;
   }
 
+  if( (arm_mode_ != k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING) && !start_joint_pos_controller_ && !start_joint_eff_controller_ && !start_twist_controller_ && !start_gripper_controller_ && !start_fault_controller_ )
+  {
+    RCLCPP_WARN_STREAM(LOGGER, "No control is active, setting to SINGLE_LEVEL_SERVOING...");
+    // Update the last ref pos
+    feedback_ = base_cyclic_.RefreshFeedback();
+    auto control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
+    control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::POSITION);
+    for (std::size_t id = 0; id < actuator_count_; ++id) {
+      base_command_.mutable_actuators(static_cast<int>(id))->set_position(feedback_.actuators(id).position());
+      actuator_config_.SetControlMode(control_mode_message, id + 1);
+    }
+    // change servoing mode
+    servoing_mode_hw_.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
+    base_.SetServoingMode(servoing_mode_hw_);
+    arm_mode_ = k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING;
+  }
+
   // reset auxiliary switching booleans
   stop_joint_pos_controller_ = stop_joint_eff_controller_ = stop_twist_controller_ = stop_fault_controller_ =
     stop_gripper_controller_ = false;
